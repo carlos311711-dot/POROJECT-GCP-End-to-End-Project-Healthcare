@@ -1,4 +1,4 @@
-# End-to-End-Project-Healthcare-Salud
+# End-to-End-GCP-sECTOR-Salud
 - Implementación de mi pipeline con las tecnologías de GCP
 
 ### **Contexto General del Proyecto**
