@@ -2,38 +2,38 @@ from datetime import date
 import requests
 from pyspark.sql import SparkSession
 
-# No need to import or initialize SparkSession in Databricks notebooks
+# No es necesario importar ni inicializar SparkSession en notebooks de Databricks
 # from pyspark.sql import SparkSession
 
-# Use date.today() to get the current date in a format that Spark can handle
+# Usar date.today() para obtener la fecha actual en un formato que Spark pueda manejar
 current_date = date.today()
 
-# Initialize Spark session
+# Inicializar la sesión de Spark
 spark = SparkSession.builder.appName("NPI Data").getOrCreate()
 
-# Base URL for the NPI Registry API
+# URL base de la API del NPI Registry
 base_url = "https://npiregistry.cms.hhs.gov/api/"
 
-# Defining the parameters for the initial API request to get a list of NPIs
+# Definir los parámetros para la petición inicial que trae la lista de NPIs
 params = {
-    "version": "2.1",  # API version
-    "state": "CA",  # Example state, replace with desired state or other criteria
-    "city": "Los Angeles",  # Example city, replace with desired city
-    "limit": 20,  # Limit the number of results for demonstration purposes
+    "version": "2.1",  # versión de la API
+    "state": "CA",  # estado de ejemplo, reemplazar por el deseado
+    "city": "Los Angeles",  # ciudad de ejemplo, reemplazar por la deseada
+    "limit": 20,  # límite de resultados para efectos de demostración
 }
 
-# Make the initial API request to get a list of NPIs
+# Hacer la petición inicial para obtener la lista de NPIs
 response = requests.get(base_url, params=params)
 
-# Check if the request was successful
+# Verificar si la petición fue exitosa
 if response.status_code == 200:
     npi_data = response.json()
     npi_list = [result["number"] for result in npi_data.get("results", [])]
 
-    # Initialize a list to store detailed NPI information
+    # Inicializar una lista para guardar el detalle de cada NPI
     detailed_results = []
 
-    # Loop through each NPI to get their details
+    # Recorrer cada NPI para obtener su detalle
     for npi in npi_list:
         detail_params = {"version": "2.1", "number": npi}
         detail_response = requests.get(base_url, params=detail_params)
@@ -69,7 +69,7 @@ if response.status_code == 200:
                         }
                     )
 
-    # Create a DataFrame
+    # Crear el DataFrame
     if detailed_results:
         print(detailed_results)
         df = spark.createDataFrame(detailed_results)
@@ -77,6 +77,6 @@ if response.status_code == 200:
         df.write.format("parquet").mode("overwrite").save("gs://healthcare-bucket-22032025/landing/npi_extract/")
 
     else:
-        print("No detailed results found.")
+        print("No se encontraron resultados detallados.")
 else:
-    print(f"Failed to fetch data: {response.status_code} - {response.text}")
+    print(f"Error al obtener los datos: {response.status_code} - {response.text}")

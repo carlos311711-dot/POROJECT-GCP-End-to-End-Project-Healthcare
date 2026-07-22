@@ -12,7 +12,7 @@ API_VERSION = 'v2'
 ACCEPT_LANGUAGE = 'en'
 ROOT_URL = 'https://id.who.int/icd/release/10/2019/A00-A09'
 
-# Function to obtain OAuth2 token
+# Función para obtener el token OAuth2
 def get_access_token():
     payload = {
         'client_id': CLIENT_ID,
@@ -26,7 +26,7 @@ def get_access_token():
     else:
         raise Exception(f"Failed to obtain access token: {response.status_code} - {response.text}")
 
-# Function to make API requests
+# Función para hacer las peticiones a la API
 def fetch_icd_codes(url, headers):
     response = requests.get(url, headers=headers, verify=True)
     if response.status_code == 200:
@@ -34,7 +34,7 @@ def fetch_icd_codes(url, headers):
     else:
         raise Exception(f"Failed to fetch data: {response.status_code} - {response.text}")
 
-# Recursive function to extract ICD codes
+# Función recursiva para extraer los códigos ICD
 def extract_codes(url, headers):
     data = fetch_icd_codes(url, headers)
     codes = []
@@ -53,10 +53,10 @@ def extract_codes(url, headers):
             })
     return codes
 
-# Get access token
+# Obtener el token de acceso
 access_token = get_access_token()
 
-# Set headers for API requests
+# Configurar los headers de las peticiones a la API
 headers = {
     'Authorization': f'Bearer {access_token}',
     'Accept': 'application/json',
@@ -64,10 +64,10 @@ headers = {
     'API-Version': API_VERSION
 }
 
-# Extract ICD codes
+# Extraer los códigos ICD
 icd_codes = extract_codes(ROOT_URL, headers)
 
-# Define schema
+# Definir el esquema
 schema = StructType([
     StructField("icd_code", StringType(), True),
     StructField("icd_code_type", StringType(), True),
@@ -77,14 +77,14 @@ schema = StructType([
     StructField("is_current_flag", BooleanType(), True)
 ])
 
-# Initialize Spark session
+# Inicializar la sesión de Spark
 spark = SparkSession.builder.appName("ICD_Codes_Extraction").getOrCreate()
 
-# Create DataFrame
+# Crear el DataFrame
 df = spark.createDataFrame(icd_codes, schema=schema)
 
-# # Show DataFrame
+# # Mostrar el DataFrame
 # df.show()
 
-# Save to Parquet
+# Guardar en Parquet
 df.write.format("parquet").mode("append").save("gs://healthcare-bucket-22032025/landing/icd_codes/")

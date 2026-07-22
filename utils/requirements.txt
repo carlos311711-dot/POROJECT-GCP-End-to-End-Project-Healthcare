@@ -1,0 +1,5 @@
+google-cloud-storage  # Para interactuar con GCS
+# google-cloud-bigquery  # Para operaciones con BigQuery
+# google-cloud-dataproc  # Para la gestión de clústeres y jobs de Dataproc
+# google-cloud-pubsub  # Opcional: si se usan triggers de Pub/Sub
+# google-cloud-dataflow  # Si se usa Dataflow con el SDK de Python

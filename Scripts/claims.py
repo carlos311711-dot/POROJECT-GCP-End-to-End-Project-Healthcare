@@ -1,30 +1,30 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import input_file_name, when
 
-# Create Spark session
+# Crear sesión de Spark
 spark = SparkSession.builder \
                     .appName("Healthcare Claims Ingestion") \
                     .getOrCreate()
 
-# configure variables
+# configurar variables
 BUCKET_NAME = "healthcare-bucket-22032025"
 CLAIMS_BUCKET_PATH = f"gs://{BUCKET_NAME}/landing/claims/*.csv"
 BQ_TABLE = "avd-databricks-demo.bronze_dataset.claims"
 TEMP_GCS_BUCKET = f"{BUCKET_NAME}/temp/"
 
-# read from claims source
+# leer desde el origen de reclamaciones (claims)
 claims_df = spark.read.csv(CLAIMS_BUCKET_PATH, header=True)
 
-# adding hospital source for future reference
+# agregar el hospital de origen para referencia futura
 claims_df = (claims_df
-                .withColumn("datasource", 
+                .withColumn("datasource",
                               when(input_file_name().contains("hospital2"), "hosb")
                              .when(input_file_name().contains("hospital1"), "hosa").otherwise("None")))
 
-# dropping dupplicates if any
+# eliminar duplicados si los hay
 claims_df = claims_df.dropDuplicates()
 
-# write to bigquery
+# escribir en bigquery
 (claims_df.write
             .format("bigquery")
             .option("table", BQ_TABLE)

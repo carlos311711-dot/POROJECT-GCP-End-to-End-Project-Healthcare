@@ -1,6 +1,6 @@
--- For database hospital_b_db:
+-- Para la base de datos hospital_b_db:
 
--- 2. Departments Table:
+-- 2. Tabla de Departamentos (departments):
 
 CREATE TABLE departments (
     DeptID nvarchar(50) NOT NULL,
@@ -8,7 +8,7 @@ CREATE TABLE departments (
     CONSTRAINT PK_departments PRIMARY KEY (DeptID)
 );
 
--- 2. Encounters Table:
+-- 2. Tabla de Encuentros (encounters):
 
 CREATE TABLE encounters (
     EncounterID nvarchar(50) NOT NULL,
@@ -23,7 +23,7 @@ CREATE TABLE encounters (
     CONSTRAINT PK_encounters PRIMARY KEY (EncounterID)
 );
 
--- 3. Hospital2_Patient_Data Table:
+-- 3. Tabla de Datos de Pacientes del Hospital 2 (Hospital2_Patient_Data):
 
 CREATE TABLE patients (
     ID nvarchar(50) NOT NULL,
@@ -40,7 +40,7 @@ CREATE TABLE patients (
 );
 
 
--- 4. Providers Table:
+-- 4. Tabla de Proveedores (providers):
 
 CREATE TABLE providers (
     ProviderID nvarchar(50) NOT NULL,
@@ -53,7 +53,7 @@ CREATE TABLE providers (
 );
 
 
--- 5. Transactions Table:
+-- 5. Tabla de Transacciones (transactions):
 
 CREATE TABLE transactions (
     TransactionID nvarchar(50) NOT NULL,

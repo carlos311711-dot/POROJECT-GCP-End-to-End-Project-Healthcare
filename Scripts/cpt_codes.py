@@ -1,25 +1,25 @@
 from pyspark.sql import SparkSession
 
-# Create Spark session
+# Crear sesión de Spark
 spark = SparkSession.builder \
                     .appName("CPT Codes Ingestion") \
                     .getOrCreate()
 
-# configure variables
+# configurar variables
 BUCKET_NAME = "healthcare-bucket-22032025"
 CPT_BUCKET_PATH = f"gs://{BUCKET_NAME}/landing/cptcodes/*.csv"
 BQ_TABLE = "avd-databricks-demo.bronze_dataset.cpt_codes"
 TEMP_GCS_BUCKET = f"{BUCKET_NAME}/temp/"
 
-# read from cpt
+# leer los códigos CPT
 cptcodes_df = spark.read.csv(CPT_BUCKET_PATH, header=True)
 
-# replace spaces with underscore
+# reemplazar espacios por guion bajo
 for col in cptcodes_df.columns:
     new_col = col.replace(" ", "_").lower()
     cptcodes_df = cptcodes_df.withColumnRenamed(col, new_col)
 
-# write to bigquery
+# escribir en bigquery
 (cptcodes_df.write
             .format("bigquery")
             .option("table", BQ_TABLE)
