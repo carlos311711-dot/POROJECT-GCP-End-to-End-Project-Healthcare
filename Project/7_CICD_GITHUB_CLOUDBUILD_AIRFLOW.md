@@ -64,41 +64,47 @@ Para implementar con éxito este pipeline, debemos seguir esta secuencia de prep
 
 ---
 
-## Paso 1: El Archivo de Configuración cloudbuild.yaml
+## Paso 1: El Archivo de Configuración cloudbuild.yaml y el Script de Carga
 
-El archivo `cloudbuild.yaml` define la secuencia de pasos lógicos que ejecutará el contenedor de Cloud Build en GCP:
+El archivo `cloudbuild.yaml` define la secuencia de pasos lógicos que ejecutará Cloud Build en GCP:
 
 ```yaml
 steps:
-  # Paso 1: Instalar dependencias del sistema y utilidades de Python
-  - name: 'python:3.9-slim'
-    entrypoint: 'pip'
-    args: ['install', '-r', 'requirements.txt']
+  # Paso 1: Instalar las dependencias de Python
+  - name: 'python'
+    entrypoint: pip
+    args: ["install", "-r", "utils/requirements.txt", "--user"]
 
-  # Paso 2: Sincronizar archivos DAG con la carpeta /dags/ de Cloud Composer
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: 'bash'
+  # Paso 2: Ejecutar el script que sube los DAGs y los Datos al bucket de Composer
+  - name: 'python'
+    entrypoint: python
     args:
-      - '-c'
-      - |
-        echo "Sincronizando DAGs de Airflow..."
-        gsutil -m rsync -d -r workflows/ gs://us-central1-healthcare-composer-bucket/dags/
-
-  # Paso 3: Sincronizar scripts de procesamiento y SQL con la carpeta /data/
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        echo "Sincronizando scripts SQL de BigQuery y PySpark..."
-        gsutil -m rsync -d -r Scripts/ gs://us-central1-healthcare-composer-bucket/data/Scripts/
-        gsutil -m rsync -d -r data/BQ/ gs://us-central1-healthcare-composer-bucket/data/BQ/
+      - "utils/add_dags_to_composer.py"
+      - "--dags_directory=${_DAGS_DIRECTORY}"
+      - "--dags_bucket=${_DAGS_BUCKET}"
+      - "--data_directory=${_DATA_DIRECTORY}"
 
 options:
   logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _DAGS_DIRECTORY: "workflows/"
+  _DAGS_BUCKET: "us-central1-demo-instance-a649b781-bucket" # Reemplaza con tu bucket de Composer
+  _DATA_DIRECTORY: "data/"
 ```
 
-* **`gsutil -m rsync`:** La utilidad realiza una sincronización en paralelo (`-m`) y remueve en el destino aquellos archivos que ya no existan en el origen (`-d`), manteniendo limpio y sincronizado el entorno del Composer.
+### 📄 Explicación del Script Auxiliar: `add_dags_to_composer.py`
+
+En lugar de utilizar comandos de consola directos como `gsutil rsync`, este proyecto emplea un script personalizado de Python ([add_dags_to_composer.py](../utils/add_dags_to_composer.py)) para gestionar la subida de manera controlada y limpia:
+
+1. **Filtrado de Archivos Basura/Pruebas (`_create_file_list`):**
+   * Copia temporalmente los archivos locales a un directorio temporal para no alterar la estructura del repositorio de trabajo.
+   * Filtra e **ignora** archivos que no deben enviarse al entorno de producción en Composer, como archivos de inicialización de paquetes (`__init__.py`) y scripts de pruebas unitarias (`*_test.py`).
+2. **Subida Segura con el SDK de GCS (`upload_to_composer`):**
+   * Conecta con Google Cloud Storage utilizando el SDK oficial (`google.cloud.storage`).
+   * Sube los archivos limpios al bucket mapeándolos en sus respectivas carpetas virtuales de destino:
+     * El contenido de la carpeta `workflows/` se sube con el prefijo `dags/`.
+     * El contenido de la carpeta `data/` se sube con el prefijo `data/`.
 
 ---
 
