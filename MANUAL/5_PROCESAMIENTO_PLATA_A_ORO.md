@@ -1,6 +1,18 @@
 # MANUAL DE PROCESAMIENTO: CAPA PLATA A ORO EN BIGQUERY
 ## Modelado Dimensional, Casos de Uso de Negocio y Tablas de Resumen para BI
 
+> [!NOTE]
+> ### 📍 Ubicación del Código y Scripts SQL
+> Los scripts SQL que ejecutan estas agregaciones analíticas de la capa Oro se ubican en:
+> * **Capa Oro (Patient Summary):** [data/BQ/gold.sql](../data/BQ/gold.sql)
+> * **Casos de Uso Adicionales (Proveedor y Departamento):** [data/BQ/assignment.sql](../data/BQ/assignment.sql)
+>
+> ### ⚙️ Cómo Ejecutar
+> Estos scripts se ejecutan en BigQuery tras finalizar la carga de la Capa Plata. Puedes correrlos manualmente en la consola de BigQuery o mediante la herramienta de línea de comandos `bq`:
+> ```bash
+> bq query --use_legacy_sql=false < data/BQ/gold.sql
+> ```
+
 Este manual describe el flujo de procesamiento final en **BigQuery** desde la **Capa Plata** (datos limpios y unificados) hacia la **Capa Oro** (Gold/Reporting Layer). Se explica cómo transformar datos técnicos normalizados en información de alto valor de negocio mediante agregaciones, uniones complejas (`JOINs`) y modelos dimensionales listos para alimentar herramientas de visualización (BI).
 
 ---

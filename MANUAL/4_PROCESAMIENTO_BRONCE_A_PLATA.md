@@ -1,6 +1,19 @@
 # MANUAL DE PROCESAMIENTO: CAPA BRONCE A PLATA EN BIGQUERY
 ## Modelo de Datos Común (CDM), Calidad de Datos (Cuarentena) y SCD Tipo 2
 
+> [!NOTE]
+> ### 📍 Ubicación del Código y Scripts SQL
+> Los scripts SQL que ejecutan estas transformaciones en BigQuery se ubican en:
+> * **Definición de Capa Bronce (Tablas Externas):** [data/BQ/bronze.sql](../data/BQ/bronze.sql)
+> * **Transformación a Capa Plata (CDM, SCD 2, Cuarentenas):** [data/BQ/silver.sql](../data/BQ/silver.sql)
+>
+> ### ⚙️ Cómo Ejecutar
+> Estos scripts se ejecutan en BigQuery de forma secuencial. Puedes correrlos manualmente en la consola de BigQuery o a través de la herramienta de línea de comandos `bq`:
+> ```bash
+> bq query --use_legacy_sql=false < data/BQ/bronze.sql
+> bq query --use_legacy_sql=false < data/BQ/silver.sql
+> ```
+
 Este manual describe en profundidad el flujo de procesamiento lógico en **BigQuery** desde la **Capa Bronce** (donde se encuentran las tablas externas en crudo) hacia la **Capa Plata** (Cleaned, Integrated & History). Se detallan las transformaciones lógicas, las reglas de unificación de fuentes de datos y las técnicas avanzadas para el manejo de historia del negocio.
 
 ---
@@ -12,7 +25,7 @@ Este manual describe en profundidad el flujo de procesamiento lógico en **BigQu
 4. [Estrategia 1: Carga Completa (Truncate & Load)](#4-estrategia-1-carga-completa-truncate--load)
 5. [Estrategia 2: Carga Incremental con SCD Tipo 2 (Slowly Changing Dimensions)](#5-estrategia-2-carga-incremental-con-scd-tipo-2-slowly-changing-dimensions)
 6. [Implementación del MERGE en BigQuery para SCD Tipo 2](#6-implementación-del-merge-en-bigquery-para-scd-tipo-2)
-
+7. [Flujo logico d ela carga Incremental](#7-Logico-de-la-carga-incremental)
 ---
 
 ## 1. Objetivos de la Capa Plata
@@ -223,3 +236,48 @@ WHEN NOT MATCHED THEN
 > La sentencia `MERGE` en BigQuery se ejecuta en dos pasos orquestados:
 > 1. Primero se realiza el `MERGE` de actualización anterior (para cambiar `is_current` a `false` en los registros modificados).
 > 2. Posterior a esto, se ejecuta un `INSERT` con los nuevos registros históricos activos (`is_current = true`) para aquellas claves cuyas versiones anteriores acaban de ser desactivadas. Esto garantiza que convivan ambas filas (la versión antigua inactiva y la versión nueva activa).
+## 7 Logico de la carga incremental 
+```mermaid
+graph TD
+    %% Fuentes de datos Bronce
+    subgraph "Capa Bronce (Datos en Crudo)"
+        HA[(transactions_ha<br/>Hospital A)]
+        HB[(transactions_hb<br/>Hospital B)]
+    end
+
+    %% Proceso de Integración Temporal
+    subgraph "Fase de Consolidación y Calidad (Tabla Temporal: quality_checks)"
+        Union[UNION ALL + Etiqueta de Origen<br/>hosa / hosb]
+        CDM[Generar Clave Única CDM<br/>Transaction_Key = TransactionID + '-' + datasource]
+        QA{¿Campos Nulos?<br/>EncounterID, PatientID,<br/>TransactionID o VisitDate}
+        QuarantineTrue[is_quarantined = TRUE]
+        QuarantineFalse[is_quarantined = FALSE]
+    end
+
+    %% Proceso de Actualización e Inserción (MERGE)
+    subgraph "Proceso de Carga y SCD Tipo 2 (MERGE)"
+        Compare{¿Existe la Clave<br/>en silver.transactions<br/>con is_current = TRUE?}
+        InsertNew[Insertar Registro Activo<br/>is_current = TRUE<br/>inserted_date = CURRENT_TIMESTAMP]
+        UpdateOld[Desactivar Registro Antiguo<br/>is_current = FALSE<br/>modified_date = CURRENT_TIMESTAMP<br/>*Lógica SCD 2 completa]
+    end
+
+    %% Destino Final
+    Destino[(Capa Plata Final<br/>silver.transactions)]
+    Drop[Eliminar Tabla Temporal<br/>DROP TABLE quality_checks]
+
+    %% Flujos y Relaciones
+    HA --> Union
+    HB --> Union
+    Union --> CDM
+    CDM --> QA
+    QA -->|Sí| QuarantineTrue
+    QA -->|No| QuarantineFalse
+    
+    QuarantineTrue & QuarantineFalse --> Compare
+    
+    Compare -->|No Existe MATCH| InsertNew
+    Compare -->|Existe MATCH y Cambió| UpdateOld
+    
+    InsertNew & UpdateOld --> Destino
+    Destino --> Drop
+```

@@ -1,6 +1,13 @@
 # GUÍA DE PREPARACIÓN PARA ENTREVISTAS: PROYECTO HEALTHCARE RCM
 ## Cómo Explicar el Pipeline End-to-End de Ingeniería de Datos en GCP
 
+> [!NOTE]
+> ### 📍 Ubicación del Código y Estructura del Repositorio
+> * **Scripts de Ingesta PySpark (Python):** [Scripts/](../Scripts/)
+> * **Scripts SQL de BigQuery:** [data/BQ/](../data/BQ/)
+> * **DAGs de Orquestación de Airflow (Python):** [workflows/](../workflows/)
+> * **Archivo de Configuración CI/CD:** [cloudbuild.yaml](../cloudbuild.yaml)
+
 Esta guía ha sido diseñada para prepararte a responder preguntas técnicas y de negocio en entrevistas de Ingeniería de Datos, tomando como base este proyecto. Al inicio se presenta un mapeo estructurado para "amarrar" cada etapa teórica con su manual técnico de implementación correspondiente.
 
 ---
@@ -10,19 +17,25 @@ Esta guía ha sido diseñada para prepararte a responder preguntas técnicas y d
 Para profundizar en el código, configuraciones y lógica detallada de cada paso expuesto en esta guía, consulta los siguientes manuales en la carpeta `MANUAL`:
 
 1. **1. FUENTES DE DATOS (Visión General y Negocio RCM):**
-   * 📄 [1_FUENTES_DE_DATOS.md](file:///c:/Users/JhonCarlosJeanPaulVe/OneDrive%20-%20Grupo%20Alicorp/Escritorio/Home/3.Learn/POROJECT-GCP-End-to-End-Project-Healthcare/MANUAL/1_FUENTES_DE_DATOS.md)
+   * 📄 [1_FUENTES_DE_DATOS.md](./1_FUENTES_DE_DATOS.md)
 2. **2. CONFIGURACIÓN DE FUENTES DE DATOS (MySQL, GCS Buckets y Metadatos):**
-   * 📄 [2_CONFIGURACION_FUENTES_DATOS.md](file:///c:/Users/JhonCarlosJeanPaulVe/OneDrive%20-%20Grupo%20Alicorp/Escritorio/Home/3.Learn/POROJECT-GCP-End-to-End-Project-Healthcare/MANUAL/2_CONFIGURACION_FUENTES_DATOS.md)
+   * 📄 [2_CONFIGURACION_FUENTES_DATOS.md](./2_CONFIGURACION_FUENTES_DATOS.md)
 3. **3. INGESTA DE DATOS (Clústeres de Dataproc y PySpark):**
-   * 📄 [3_INGESTA_DATOS_DATAPROC.md](file:///c:/Users/JhonCarlosJeanPaulVe/OneDrive%20-%20Grupo%20Alicorp/Escritorio/Home/3.Learn/POROJECT-GCP-End-to-End-Project-Healthcare/MANUAL/3_INGESTA_DATOS_DATAPROC.md)
+   * 📄 [3_INGESTA_DATOS_DATAPROC.md](./3_INGESTA_DATOS_DATAPROC.md)
 4. **4. PROCESAMIENTO BRONCE A PLATA (Limpieza, CDM, Cuarentena e Hilos de SCD Tipo 2):**
-   * 📄 [4_PROCESAMIENTO_BRONCE_A_PLATA.md](file:///c:/Users/JhonCarlosJeanPaulVe/OneDrive%20-%20Grupo%20Alicorp/Escritorio/Home/3.Learn/POROJECT-GCP-End-to-End-Project-Healthcare/MANUAL/4_PROCESAMIENTO_BRONCE_A_PLATA.md)
+   * 📄 [4_PROCESAMIENTO_BRONCE_A_PLATA.md](./4_PROCESAMIENTO_BRONCE_A_PLATA.md)
 5. **5. PROCESAMIENTO PLATA A ORO (Tablas de Resumen, Hechos y Dimensiones para BI):**
-   * 📄 [5_PROCESAMIENTO_PLATA_A_ORO.md](file:///c:/Users/JhonCarlosJeanPaulVe/OneDrive%20-%20Grupo%20Alicorp/Escritorio/Home/3.Learn/POROJECT-GCP-End-to-End-Project-Healthcare/MANUAL/5_PROCESAMIENTO_PLATA_A_ORO.md)
+   * 📄 [5_PROCESAMIENTO_PLATA_A_ORO.md](./5_PROCESAMIENTO_PLATA_A_ORO.md)
 6. **6. ORQUESTACIÓN DE WORKFLOWS (Composer, Airflow y Secuencia Parent-Child):**
-   * 📄 [6_ORQUESTACION_WORKFLOW_AIRFLOW.md](file:///c:/Users/JhonCarlosJeanPaulVe/OneDrive%20-%20Grupo%20Alicorp/Escritorio/Home/3.Learn/POROJECT-GCP-End-to-End-Project-Healthcare/MANUAL/6_ORQUESTACION_WORKFLOW_AIRFLOW.md)
+   * 📄 [6_ORQUESTACION_WORKFLOW_AIRFLOW.md](./6_ORQUESTACION_WORKFLOW_AIRFLOW.md)
 7. **7. INTEGRACIÓN Y DESPLIEGUE CONTINUO (CI/CD con GitHub y Cloud Build):**
-   * 📄 [7_CICD_GITHUB_CLOUDBUILD_AIRFLOW.md](file:///c:/Users/JhonCarlosJeanPaulVe/OneDrive%20-%20Grupo%20Alicorp/Escritorio/Home/3.Learn/POROJECT-GCP-End-to-End-Project-Healthcare/MANUAL/7_CICD_GITHUB_CLOUDBUILD_AIRFLOW.md)
+   * 📄 [7_CICD_GITHUB_CLOUDBUILD_AIRFLOW.md](./7_CICD_GITHUB_CLOUDBUILD_AIRFLOW.md)
+8. **8. MODELO ENTIDAD-RELACIÓN DE CAPA ORO:**
+   * 📄 [8_DIAGRAMA_ER_GOLD.md](./8_DIAGRAMA_ER_GOLD.md)
+9. **9. GUÍA DE ENTREVISTAS (Este documento):**
+   * 📄 [9_GUIA_PREPARACION_ENTREVISTAS.md](./9_GUIA_PREPARACION_ENTREVISTAS.md)
+10. **10. VALIDACIÓN EN AIRFLOW (Hola Mundo en Cloud Composer):**
+    * 📄 [10_HOLA_MUNDO_AIRFLOW.md](./10_HOLA_MUNDO_AIRFLOW.md)
 
 ---
 
@@ -77,6 +90,9 @@ Al explicar la arquitectura al entrevistador, llévalo en orden secuencial (Fase
 
 ### P: ¿Por qué decidieron utilizar Truncate & Load en la capa Oro en lugar de cargas incrementales?
 > **R:** *"Las tablas agregadas de la capa Oro son de un volumen significativamente menor comparado con el detalle transaccional de Plata. Usar Truncate & Load diario garantiza que si hay actualizaciones tardías en el estado de una reclamación de seguro de meses anteriores, la información se recalcule correctamente reflejando el estado real en los dashboards analíticos, siendo computacionalmente muy eficiente en BigQuery."*
+
+### P: ¿Cómo aprovisionaron y configuraron Apache Airflow en la nube de GCP?
+> **R:** *"Utilizamos Google Cloud Composer 2 bajo una escala 'Small' para optimizar costos de desarrollo y pruebas. Configuramos una cuenta de servicio dedicada con los roles mínimos necesarios (Composer Worker, Dataproc Editor, Storage Admin y BigQuery Admin). Esto nos permite orquestar de forma segura todo el pipeline, permitiendo a los workers de Airflow encender el clúster de Dataproc, enviar jobs de PySpark, y ejecutar los scripts SQL de DDL y DML en BigQuery sin otorgar privilegios excesivos ni de superusuario."*
 
 ---
 

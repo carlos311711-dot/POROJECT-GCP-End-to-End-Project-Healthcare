@@ -1,6 +1,14 @@
 # MANUAL PASO A PAASO: VISTA GENERAL (OVERVIEW) DEL PROYECTO
 ## Gestión del Ciclo de Ingresos Sanitarios (Healthcare RCM) en Google Cloud Platform
 
+> ### 📍 Ubicación del Código y Scripts del Proyecto
+> Este manual introductorio provee la visión general de negocio y la arquitectura conceptual. Los componentes de código técnico que se ejecutan a lo largo del pipeline están distribuidos en las siguientes rutas relativas del repositorio:
+> * **Scripts de Ingesta PySpark (Python):** [Scripts/](../Scripts/)
+> * **Scripts SQL de BigQuery:** [data/BQ/](../data/BQ/)
+> * **DAGs de Orquestación de Airflow (Python):** [workflows/](../workflows/)
+> * **Archivo de Configuración CI/CD:** [cloudbuild.yaml](../cloudbuild.yaml)
+
+
 Bienvenido al manual paso a paso del proyecto **GCP End-to-End Healthcare Revenue Cycle Management (RCM)**. Este documento ha sido diseñado como una guía didáctica y técnica completa para entender el flujo de datos del sector salud desde su origen hasta la visualización analítica.
 
 ---
@@ -137,7 +145,7 @@ graph TD
 El proceso de extracción de datos operacionales es administrado mediante **Google Cloud Dataproc (Spark/PySpark)**:
 
 ### A. Extracción desde Bases de Datos Cloud SQL (MySQL)
-Los scripts [hospitalA_mysqlToLanding.py](file:///c:/Users/JhonCarlosJeanPaulVe/OneDrive%20-%20Grupo%20Alicorp/Escritorio/Home/3.Learn/POROJECT-GCP-End-to-End-Project-Healthcare/Scripts/hospitalA_mysqlToLanding.py) y [hospitalB_mysqlToLanding.py](file:///c:/Users/JhonCarlosJeanPaulVe/OneDrive%20-%20Grupo%20Alicorp/Escritorio/Home/3.Learn/POROJECT-GCP-End-to-End-Project-Healthcare/Scripts/hospitalB_mysqlToLanding.py) se conectan a bases de datos relacionales independientes y realizan lo siguiente:
+Los scripts [hospitalA_mysqlToLanding.py](../Scripts/hospitalA_mysqlToLanding.py) y [hospitalB_mysqlToLanding.py](../Scripts/hospitalB_mysqlToLanding.py) se conectan a bases de datos relacionales independientes y realizan lo siguiente:
 1. **Configuración de carga:** Leen un archivo CSV de configuración centralizado en GCS (`configs/load_config.csv`) para determinar si las tablas están activas y definir su tipo de carga (**Full** o **Incremental**).
 2. **Carga Incremental y Watermarking:** 
    - Utilizan una tabla de auditoría en BigQuery (`audit_log`) para consultar el timestamp de la última carga exitosa (`load_timestamp`).
@@ -152,8 +160,8 @@ Los scripts [hospitalA_mysqlToLanding.py](file:///c:/Users/JhonCarlosJeanPaulVe/
 5. **Auditoría y Logging:** Actualizan la tabla de auditoría (`audit_log`) en BigQuery y cargan un archivo JSON de logs con el estado de la ejecución a GCS.
 
 ### B. Ingesta de Archivos Planos (Claims y CPT Codes)
-- **Claims (Reclamaciones):** El script [claims.py](file:///c:/Users/JhonCarlosJeanPaulVe/OneDrive%20-%20Grupo%20Alicorp/Escritorio/Home/3.Learn/POROJECT-GCP-End-to-End-Project-Healthcare/Scripts/claims.py) lee de forma masiva los CSV mensuales de aseguradoras, determina el origen de datos de manera automatizada usando `input_file_name()`, elimina registros duplicados y escribe directamente en BigQuery (`bronze_dataset.claims`).
-- **CPT Codes:** El script [cpt_codes.py](file:///c:/Users/JhonCarlosJeanPaulVe/OneDrive%20-%20Grupo%20Alicorp/Escritorio/Home/3.Learn/POROJECT-GCP-End-to-End-Project-Healthcare/Scripts/cpt_codes.py) lee el catálogo de códigos médicos y estandariza los nombres de columnas reemplazando espacios por guiones bajos y transformando el texto a minúsculas, subiendo el resultado a `bronze_dataset.cpt_codes`.
+- **Claims (Reclamaciones):** El script [claims.py](../Scripts/claims.py) lee de forma masiva los CSV mensuales de aseguradoras, determina el origen de datos de manera automatizada usando `input_file_name()`, elimina registros duplicados y escribe directamente en BigQuery (`bronze_dataset.claims`).
+- **CPT Codes:** El script [cpt_codes.py](../Scripts/cpt_codes.py) lee el catálogo de códigos médicos y estandariza los nombres de columnas reemplazando espacios por guiones bajos y transformando el texto a minúsculas, subiendo el resultado a `bronze_dataset.cpt_codes`.
 
 ---
 
@@ -188,7 +196,7 @@ El procesamiento de datos en BigQuery se divide en tres capas conceptuales que g
 ```
 
 ### Capa Bronce (Raw Layer)
-La capa bronce está implementada mediante **Tablas Externas** en BigQuery. El script SQL [bronze.sql](file:///c:/Users/JhonCarlosJeanPaulVe/OneDrive%20-%20Grupo%20Alicorp/Escritorio/Home/3.Learn/POROJECT-GCP-End-to-End-Project-Healthcare/data/BQ/bronze.sql) crea estas definiciones. Al ser tablas externas, no almacenan datos físicamente en BigQuery, sino que leen directamente los JSONs/CSVs desde Google Cloud Storage cuando se ejecuta una consulta, reduciendo costos de almacenamiento redundantes en la primera fase.
+La capa bronce está implementada mediante **Tablas Externas** en BigQuery. El script SQL [bronze.sql](../data/BQ/bronze.sql) crea estas definiciones. Al ser tablas externas, no almacenan datos físicamente en BigQuery, sino que leen directamente los JSONs/CSVs desde Google Cloud Storage cuando se ejecuta una consulta, reduciendo costos de almacenamiento redundantes en la primera fase.
 
 ### Capa Plata (Silver Layer)
 Es la fase crucial donde se realiza la transformación, consistencia e integración de la información:

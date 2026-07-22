@@ -1,6 +1,12 @@
 # GUÍA PASO A PASO: CONFIGURACIÓN DE FUENTES DE DATOS E INFRAESTRUCTURA
 ## Replicación del Entorno Operacional del Sector Salud en GCP (SQL DBs, GCS, BQ, Configs)
 
+> [!NOTE]
+> ### 📍 Ubicación de Recursos y Datos Relacionados
+> * **Código SQL DDL para MySQL (Cloud SQL):** Incluido en la sección de este manual (Paso 2).
+> * **Datos de Prueba Iniciales (CSVs):** [data/EMR/](../data/EMR/) (para carga inicial en MySQL), [data/claims/](../data/claims/) (para Claims) y [data/cptcodes/](../data/cptcodes/) (para CPT).
+> * **Archivo de Control de Metadatos:** [data/configs/load_config.csv](../data/configs/load_config.csv) (se sube a `gs://{GCS_BUCKET}/configs/load_config.csv`).
+
 En entornos corporativos reales, las fuentes de datos operacionales de los hospitales ya existen y están en producción. Para replicar este escenario del mundo real con fines de desarrollo y pruebas, este manual describe paso a paso cómo configurar la infraestructura inicial en **Google Cloud Platform (GCP)** y cargar los datos de prueba.
 
 ---

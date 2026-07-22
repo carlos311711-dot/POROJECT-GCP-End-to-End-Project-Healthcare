@@ -1,17 +1,33 @@
 # MANUAL DE ORQUESTACIÓN Y AUTOMATIZACIÓN: APACHE AIRFLOW & CLOUD COMPOSER
 ## Orquestación del Pipeline de Ingesta (PySpark/Dataproc) y Procesamiento (BigQuery)
 
+> [!NOTE]
+> ### 📍 Ubicación del Código y DAGs de Airflow
+> Los archivos Python que definen los DAGs de orquestación en Cloud Composer se ubican en:
+> * **DAG Maestro (Orquestador Padre):** [workflows/parent_dag.py](../workflows/parent_dag.py)
+> * **DAG de Ingesta PySpark (Hijo 1):** [workflows/pyspark_dag.py](../workflows/pyspark_dag.py)
+> * **DAG de Transformación SQL (Hijo 2):** [workflows/bq_dag.py](../workflows/bq_dag.py)
+>
+> ### ⚙️ Cómo Ejecutar
+> Estos DAGs se cargan en la carpeta `/dags/` del bucket de Cloud Composer y se controlan desde la interfaz web de Airflow. El DAG Padre se ejecuta automáticamente en su horario programado (`schedule_interval`), pero puedes dispararlo manualmente en la UI de Airflow o a través del comando `gcloud`:
+> ```bash
+> gcloud composer environments run [COMPOSER_ENV_NAME] \
+>     --location [COMPOSER_LOCATION] \
+>     dags trigger -- parent_orchestrator
+> ```
+
 Este manual detalla la **Fase 3: Orquestación del Pipeline** utilizando **Google Cloud Composer** (el servicio totalmente administrado de **Apache Airflow** en GCP). Se explica la arquitectura de orquestación basada en el patrón de diseño **Padre e Hijos (Parent-Child DAGs)** para automatizar la ejecución de jobs en Spark y consultas SQL en BigQuery de forma secuencial y sin intervención manual.
 
 ---
 
 ## 📖 Tabla de Contenidos
 1. [Introducción a la Orquestación con Cloud Composer](#1-introducción-a-la-orquestación-con-cloud-composer)
-2. [Estrategia de Diseño: Patrón de Orquestación Parent-Child](#2-estrategia-de-diseño-patrón-de-orquestación-parent-child)
-3. [Paso 1: El DAG de Ingesta - PySpark (Dataproc)](#paso-1-el-dag-de-ingesta---pyspark-dataproc)
-4. [Paso 2: El DAG de Base de Datos - Procesamiento (BigQuery)](#paso-2-el-dag-de-base-de-datos---procesamiento-bigquery)
-5. [Paso 3: El DAG Maestro - Orquestador (Parent)](#paso-3-el-dag-maestro---orquestador-parent)
-6. [Despliegue de DAGs y CI/CD en la Empresa](#6-despliegue-de-dags-y-cicd-en-la-empresa)
+2. [Aprovisionamiento: Cómo Crear el Entorno de Airflow (Cloud Composer)](#2-aprovisionamiento-cómo-crear-el-entorno-de-airflow-cloud-composer)
+3. [Estrategia de Diseño: Patrón de Orquestación Parent-Child](#3-estrategia-de-diseño-patrón-de-orquestación-parent-child)
+4. [Paso 1: El DAG de Ingesta - PySpark (Dataproc)](#paso-1-el-dag-de-ingesta---pyspark-dataproc)
+5. [Paso 2: El DAG de Base de Datos - Procesamiento (BigQuery)](#paso-2-el-dag-de-base-de-datos---procesamiento-bigquery)
+6. [Paso 3: El DAG Maestro - Orquestador (Parent)](#paso-3-el-dag-maestro---orquestador-parent)
+7. [Despliegue de DAGs y CI/CD en la Empresa](#7-despliegue-de-dags-y-cicd-en-la-empresa)
 
 ---
 
@@ -27,19 +43,87 @@ Para coordinar esto, GCP provee **Cloud Composer**, que implementa **Apache Airf
 
 ---
 
-## 2. Estrategia de Diseño: Patrón de Orquestación Parent-Child
+## 2. Aprovisionamiento: Cómo Crear el Entorno de Airflow (Cloud Composer)
+
+Para desplegar Apache Airflow de manera nativa y totalmente administrada en GCP utilizamos **Managed Airflow (Gen 3)** — anteriormente llamado **Cloud Composer 3** (documentación oficial: https://docs.cloud.google.com/composer/docs/composer-3/create-environments). A continuación, se detallan los prerrequisitos y los dos métodos para crearlo:
+
+### Prerrequisitos (una sola vez por proyecto)
+
+1. **Habilitar la API de Composer:**
+   ```bash
+   gcloud services enable composer.googleapis.com
+   ```
+2. **Cuenta de Servicio con roles IAM:** El entorno se ejecuta con una cuenta de servicio (ej. `my-service-account@project-id.iam.gserviceaccount.com`) que debe tener los siguientes roles para poder orquestar los componentes del pipeline:
+   * **Composer Worker** (`roles/composer.worker`): Necesario para el funcionamiento interno del motor Airflow.
+   * **Editor de Dataproc** (`roles/dataproc.editor`): Permite encender, apagar y enviar jobs de PySpark al clúster de Dataproc.
+   * **Administrador de Storage** (`roles/storage.admin`): Permite leer/escribir datos en la Landing Zone de GCS.
+   * **Administrador de BigQuery** (`roles/bigquery.admin`): Permite ejecutar queries y crear tablas en BigQuery.
+
+   ```bash
+   # Ejemplo: otorgar el rol Composer Worker a la cuenta de servicio
+   gcloud projects add-iam-policy-binding PROJECT_ID \
+       --member "serviceAccount:my-service-account@PROJECT_ID.iam.gserviceaccount.com" \
+       --role roles/composer.worker
+   ```
+
+### Método A: Creación desde la Consola Web de GCP
+
+1. **Ingresa al Servicio:** En la consola de GCP, busca **Composer / Managed Airflow** en la barra de búsqueda superior y haz clic en **Crear Entorno** > **Managed Airflow (Gen 3)** (recomendado por Google; el aprovisionamiento es serverless y ya no expone el clúster GKE como en Composer 2).
+2. **Parámetros Básicos:**
+   * **Nombre del entorno:** `us-central1-healthcare-composer-bucket` (debe iniciar con minúscula, máx. 62 caracteres y ser válido como nombre de bucket de GCS).
+   * **Región:** `us-east1` o `us-central1` (debe ser la misma región donde residen tus buckets de GCS y BigQuery para evitar cargos por transferencia de datos inter-regionales).
+3. **Configuración de Componentes y Versiones:**
+   * **Versión de Imagen:** Obligatoria para Gen 3. Selecciona la última versión disponible con formato `composer-3-airflow-X.Y.Z-build.N` (ej. `composer-3-airflow-2.11.1-build.11`).
+   * **Tamaño del entorno (Scale):** Selecciona **Small** (Pequeño) para entornos de desarrollo y pruebas. Esto aprovisionará recursos mínimos y mantendrá los costos bajos.
+4. **Cuenta de Servicio:** Selecciona la cuenta de servicio preparada en los prerrequisitos.
+5. Haz clic en **Crear**. *(La creación del entorno tarda aproximadamente 25 minutos)*.
+
+---
+
+### Método B: Creación Rápida mediante Cloud Shell (Línea de Comandos)
+
+Si deseas realizar la creación de forma rápida y automatizada sin tener que pasar por la interfaz gráfica, abre **Cloud Shell** y ejecuta el siguiente comando `gcloud`:
+
+```bash
+gcloud composer environments create us-central1-healthcare-composer-bucket \
+    --location us-east1 \
+    --image-version composer-3-airflow-2.11.1-build.11 \
+    --environment-size small \
+    --service-account "my-service-account@project-d92eee7b-8c90-4381-b63.iam.gserviceaccount.com" \
+    --project project-d92eee7b-8c90-4381-b63
+```
+
+> [!IMPORTANT]
+> El flag `--image-version` es **obligatorio** con el formato `composer-3-airflow-X.Y.Z-build.N`; si lo omites, `gcloud` crea un entorno de la generación anterior (Composer 2). Lista las versiones disponibles con:
+> ```bash
+> gcloud composer environments list-upgrades --location us-east1 2>/dev/null || \
+> gcloud beta composer environments list-image-versions --location us-east1
+> ```
+
+Para verificar el estado del entorno una vez lanzada la creación:
+
+```bash
+gcloud composer environments describe us-central1-healthcare-composer-bucket \
+    --location us-east1 --format="value(state)"
+```
+
+> [!TIP]
+> **El Bucket de Composer:**
+> Cuando Cloud Composer se crea con éxito, GCP aprovisiona automáticamente un bucket especial de Google Cloud Storage dedicado a ese entorno. Toda la sincronización de tus DAGs y plugins se realiza copiando los archivos directamente a las carpetas `/dags/` y `/data/` de este bucket de GCS auto-generado.
+
+---
+
+## 3. Estrategia de Diseño: Patrón de Orquestación Parent-Child
 
 En lugar de construir un único DAG gigante y monolítico que contenga todas las tareas del clúster de Spark y del almacén de BigQuery, se adopta un diseño **modular y desacoplado**:
 
 ```mermaid
 graph TD
-    %% Padre
-    subgraph DAG Maestro (Parent)
+    subgraph PARENT["DAG Maestro (Parent)"]
         MAESTRO[Master Orchestrator DAG<br/>Programación Temporal]
     end
 
-    %% Hijos
-    subgraph DAG Hijo 1: Ingestion
+    subgraph INGESTION["DAG Hijo 1: Ingestion"]
         SPARK_START[Iniciar Clúster Dataproc]
         JOB_A[Job Spark: Hospital A]
         JOB_B[Job Spark: Hospital B]
@@ -50,7 +134,7 @@ graph TD
         SPARK_START --> JOB_A & JOB_B & JOB_C & JOB_D --> SPARK_STOP
     end
 
-    subgraph DAG Hijo 2: Processing
+    subgraph PROCESSING["DAG Hijo 2: Processing"]
         BQ_BRONZE[Carga Capa Bronce]
         BQ_SILVER[Procesamiento Plata]
         BQ_GOLD[Consolidación Oro]
@@ -58,9 +142,9 @@ graph TD
         BQ_BRONZE --> BQ_SILVER --> BQ_GOLD
     end
 
-    %% Relaciones
     MAESTRO -->|1. Trigger| SPARK_START
     SPARK_STOP -->|2. Éxito Trigger| BQ_BRONZE
+
 ```
 
 ### Beneficios del Patrón Parent-Child:

@@ -1,6 +1,22 @@
 # MANUAL DE INGESTA DE DATOS: DATAPROC, PYSPARK Y GCS LANDING
 ## Extracción de Datos EMR Relacionales a la Landing Zone de Google Cloud Storage
 
+> [!NOTE]
+> ### 📍 Ubicación del Código y Scripts Python
+> Los scripts de PySpark que implementan esta ingesta están ubicados en:
+> * **Extracción Hospital A (JDBC):** [Scripts/hospitalA_mysqlToLanding.py](../Scripts/hospitalA_mysqlToLanding.py)
+> * **Extracción Hospital B (JDBC):** [Scripts/hospitalB_mysqlToLanding.py](../Scripts/hospitalB_mysqlToLanding.py)
+> * **Ingesta de Aseguradoras (Claims):** [Scripts/claims.py](../Scripts/claims.py)
+> * **Ingesta de Códigos de Diagnóstico (CPT):** [Scripts/cpt_codes.py](../Scripts/cpt_codes.py)
+>
+> ### ⚙️ Cómo Ejecutar
+> Estos scripts se ejecutan como Jobs de PySpark dentro de tu clúster de Dataproc mediante el comando de `gcloud`:
+> ```bash
+> gcloud dataproc jobs submit pyspark Scripts/hospitalA_mysqlToLanding.py \
+>     --cluster=my-demo-cluster2 \
+>     --region=us-central1
+> ```
+
 Este manual explica detalladamente la fase de **Ingesta de Datos (Fase 1)** utilizando **Google Cloud Dataproc** y scripts de **PySpark**. A través de este proceso, los datos alojados en las bases de datos transaccionales (Cloud SQL MySQL) del Hospital A y B son extraídos de manera óptima (soportando cargas completas e incrementales) y almacenados en formato estructurado JSON Lines en la Landing Zone de **Google Cloud Storage (GCS)**.
 
 ---
@@ -41,19 +57,43 @@ Para ejecutar nuestros jobs de PySpark, debemos contar con un clúster activo en
 ### B. Creación Rápida mediante Cloud Shell (Línea de Comandos)
 Para evitar la configuración manual paso a paso, se puede desplegar el clúster con un solo comando de `gcloud` desde Cloud Shell:
 
+--ip publica
+```bash
+
+gcloud dataproc clusters create my-demo-cluster2 \
+    --enable-component-gateway \
+    --region us-east1 \
+    --zone us-east1-c \
+    --master-machine-type e2-standard-2 \
+    --master-boot-disk-size 50 \
+    --master-boot-disk-type pd-standard \
+    --num-workers 2 \
+    --worker-machine-type e2-standard-2 \
+    --worker-boot-disk-size 50 \
+    --worker-boot-disk-type pd-standard \
+    --image-version 2.1-debian11 \
+    --optional-components JUPYTER \
+    --project project-d92eee7b-8c90-4381-b63
+```
+--ip privada
+
 ```bash
 gcloud dataproc clusters create my-demo-cluster2 \
     --enable-component-gateway \
-    --region us-central1 \
-    --zone us-central1-a \
-    --single-node \
-    --master-machine-type n1-standard-2 \
+    --no-address \
+    --region us-east1 \
+    --zone us-east1-c \
+    --master-machine-type e2-standard-2 \
     --master-boot-disk-size 50 \
+    --master-boot-disk-type pd-standard \
+    --num-workers 2 \
+    --worker-machine-type e2-standard-2 \
+    --worker-boot-disk-size 50 \
+    --worker-boot-disk-type pd-standard \
     --image-version 2.1-debian11 \
     --optional-components JUPYTER \
-    --project avd-databricks-demo
+    --project project-d92eee7b-8c90-4381-b63
 ```
-
 *Una vez creado (tardará entre 3 y 5 minutos), el clúster estará listo para recibir jobs de Spark o para trabajar en JupyterLab desde la pestaña "Interfaces Web" de Dataproc.*
 
 ---
